@@ -14,6 +14,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from rf_i18n import tr, bi, formatter
 
 
 APP_DIR = Path(__file__).resolve().parent
@@ -669,88 +670,88 @@ def render_header() -> None:
 
 
 def sidebar_inputs() -> tuple[ForecastInput, PipelineInput, bool]:
-    scenario = st.sidebar.selectbox("Scenario template", list(SCENARIOS.keys()))
+    scenario = st.sidebar.selectbox(tr("Scenario template"), list(SCENARIOS.keys()), format_func=formatter())
     defaults = SCENARIOS[scenario]
     pending_anchor = st.session_state.pop("pending_anchor", None)
     if pending_anchor:
         apply_anchor_to_session(pending_anchor)
     ensure_session_defaults(defaults)
-    if st.sidebar.button("시나리오 값 불러오기", width="stretch"):
+    if st.sidebar.button(tr("Load scenario"), width="stretch"):
         for key, value in SCENARIOS[scenario].items():
             st.session_state[key] = value
 
-    st.sidebar.markdown("### 01 공식 매출 Anchor")
-    st.sidebar.selectbox("Revenue scope / 매출 범위", ["Illustrative assumption", "Company total", "Product / indication matched"], key="revenue_scope")
-    company = st.sidebar.text_input("Company", key="company")
-    product = st.sidebar.text_input("Product / asset", key="product")
-    indication = st.sidebar.text_input("Indication market", key="indication")
-    currency_label = st.sidebar.selectbox("Currency label", ["USD", "GBP", "EUR", "JPY", "KRW"], key="currency_label")
-    reported_sales = st.sidebar.number_input(
-        "Revenue input, million",
-        min_value=0.0,
-        step=10.0,
-        key="reported_sales",
-    )
-    anchor_year = st.sidebar.number_input(
-        "Anchor year",
-        min_value=2000,
-        max_value=2100,
-        step=1,
-        key="anchor_year",
-    )
-    current_share = st.sidebar.number_input(
-        "Current product share, %",
-        min_value=0.1,
-        max_value=100.0,
-        step=0.1,
-        key="current_share",
-    )
+    with st.sidebar.expander(bi('01 · Revenue anchor', '01 · 매출 근거'), expanded=True):
+        st.selectbox(tr("Revenue scope / 매출 범위"), ["Illustrative assumption", "Company total", "Product / indication matched"], key="revenue_scope", format_func=formatter())
+        company = st.text_input(tr("Company"), key="company")
+        product = st.text_input(tr("Product / asset"), key="product")
+        indication = st.text_input(tr("Indication market"), key="indication")
+        currency_label = st.selectbox(tr("Currency label"), ["USD", "GBP", "EUR", "JPY", "KRW"], key="currency_label", format_func=formatter())
+        reported_sales = st.number_input(
+            tr("Revenue input, million"),
+            min_value=0.0,
+            step=10.0,
+            key="reported_sales",
+        )
+        anchor_year = st.number_input(
+            tr("Anchor year"),
+            min_value=2000,
+            max_value=2100,
+            step=1,
+            key="anchor_year",
+        )
+        current_share = st.number_input(
+            tr("Current product share, %"),
+            min_value=0.1,
+            max_value=100.0,
+            step=0.1,
+            key="current_share",
+        )
 
-    st.sidebar.markdown("### 02 시장 가정")
-    market_cagr = st.sidebar.number_input("Market CAGR, %", step=0.1, key="market_cagr")
-    initial_share = st.sidebar.number_input("Initial share, %", min_value=0.0, max_value=100.0, step=0.1, key="initial_share")
-    peak_share = st.sidebar.number_input("Peak share, %", min_value=0.0, max_value=100.0, step=0.1, key="peak_share")
-    uptake_speed = st.sidebar.slider("Uptake speed", min_value=0.15, max_value=1.25, step=0.05, key="uptake_speed")
-    payer_access = st.sidebar.number_input("Payer access, %", min_value=0.0, max_value=100.0, step=1.0, key="payer_access")
-    competition_drag = st.sidebar.number_input("Competition drag, % per year", min_value=0.0, max_value=40.0, step=0.5, key="competition_drag")
+    with st.sidebar.expander(bi('02 · Market assumptions', '02 · 시장 가정'), expanded=False):
+        market_cagr = st.number_input(tr("Market CAGR, %"), step=0.1, key="market_cagr")
+        initial_share = st.number_input(tr("Initial share, %"), min_value=0.0, max_value=100.0, step=0.1, key="initial_share")
+        peak_share = st.number_input(tr("Peak share, %"), min_value=0.0, max_value=100.0, step=0.1, key="peak_share")
+        uptake_speed = st.slider(tr("Uptake speed"), min_value=0.15, max_value=1.25, step=0.05, key="uptake_speed")
+        payer_access = st.number_input(tr("Payer access, %"), min_value=0.0, max_value=100.0, step=1.0, key="payer_access")
+        competition_drag = st.number_input(tr("Competition drag, % per year"), min_value=0.0, max_value=40.0, step=0.5, key="competition_drag")
 
-    st.sidebar.markdown("### 03 환자 기반 검증")
-    patients = st.sidebar.number_input("Prevalent / incident patients", min_value=0, step=1000, key="patients")
-    patient_growth = st.sidebar.number_input("Patient growth, %", step=0.1, key="patient_growth")
-    diagnosis_rate = st.sidebar.number_input("Diagnosis rate, %", min_value=0.0, max_value=100.0, step=1.0, key="diagnosis_rate")
-    treatment_rate = st.sidebar.number_input("Treatment rate, %", min_value=0.0, max_value=100.0, step=1.0, key="treatment_rate")
-    eligible_rate = st.sidebar.number_input("Eligible rate, %", min_value=0.0, max_value=100.0, step=1.0, key="eligible_rate")
-    annual_price = st.sidebar.number_input("Net annual price per patient", min_value=0.0, step=100.0, key="annual_price")
-    adherence = st.sidebar.number_input("Adherence / persistence, %", min_value=0.0, max_value=100.0, step=1.0, key="adherence")
-    market_weight = st.sidebar.slider("Market model weight, %", min_value=0.0, max_value=100.0, step=5.0, key="market_weight")
+    with st.sidebar.expander(bi('03 · Patient model', '03 · 환자 모델'), expanded=False):
+        patients = st.number_input(tr("Prevalent / incident patients"), min_value=0, step=1000, key="patients")
+        patient_growth = st.number_input(tr("Patient growth, %"), step=0.1, key="patient_growth")
+        diagnosis_rate = st.number_input(tr("Diagnosis rate, %"), min_value=0.0, max_value=100.0, step=1.0, key="diagnosis_rate")
+        treatment_rate = st.number_input(tr("Treatment rate, %"), min_value=0.0, max_value=100.0, step=1.0, key="treatment_rate")
+        eligible_rate = st.number_input(tr("Eligible rate, %"), min_value=0.0, max_value=100.0, step=1.0, key="eligible_rate")
+        annual_price = st.number_input(tr("Net annual price per patient"), min_value=0.0, step=100.0, key="annual_price")
+        adherence = st.number_input(tr("Adherence / persistence, %"), min_value=0.0, max_value=100.0, step=1.0, key="adherence")
+        market_weight = st.slider(tr("Market model weight, %"), min_value=0.0, max_value=100.0, step=5.0, key="market_weight")
 
-    st.sidebar.markdown("### 04 근거 기록")
-    source_type = st.sidebar.selectbox(
-        "Primary source type",
-        ["SEC EDGAR 10-K / 20-F", "Company Annual Report", "DART / OpenDART", "CMS / HIRA cross-check", "Manual review needed"],
-        key="source_type",
-    )
-    evidence_url = st.sidebar.text_input("Evidence URL", key="evidence_url")
-    filing_date = st.sidebar.text_input("Filing / report date", key="filing_date")
-    accession = st.sidebar.text_input("Accession / report ID", key="accession")
-    reviewer_note = st.sidebar.text_area("Reviewer note", height=110, key="reviewer_note")
+    with st.sidebar.expander(bi('04 · Source record', '04 · 출처 기록'), expanded=False):
+        source_type = st.selectbox(
+            tr("Primary source type"),
+            ["SEC EDGAR 10-K / 20-F", "Company Annual Report", "DART / OpenDART", "CMS / HIRA cross-check", "Manual review needed"],
+            key="source_type",
+        format_func=formatter())
+        evidence_url = st.text_input(tr("Evidence URL"), key="evidence_url")
+        filing_date = st.text_input(tr("Filing / report date"), key="filing_date")
+        accession = st.text_input(tr("Accession / report ID"), key="accession")
+        reviewer_note = st.text_area(tr("Reviewer note"), height=110, key="reviewer_note")
 
-    st.sidebar.markdown("### 05 Pipeline risk")
-    phase = st.sidebar.selectbox("Clinical phase", list(PHASE_POS.keys()), key="pipeline_phase")
-    probability_default = PHASE_POS[phase]
-    pipeline = PipelineInput(
-        asset=st.sidebar.text_input("Pipeline asset", key="pipeline_asset"),
-        indication=st.sidebar.text_input("Pipeline indication", key="pipeline_indication"),
-        phase=phase,
-        launch_year=st.sidebar.number_input("Expected launch year", min_value=anchor_year, max_value=anchor_year + 15, step=1, key="pipeline_launch_year"),
-        probability=st.sidebar.number_input("Probability of success, %", min_value=0.0, max_value=100.0, step=0.5, key="pipeline_probability"),
-        label_factor=st.sidebar.number_input("Expected label scope, %", min_value=0.0, max_value=100.0, step=1.0, key="pipeline_label_factor"),
-        economics=st.sidebar.number_input("Company economics, %", min_value=0.0, max_value=100.0, step=1.0, key="pipeline_economics"),
-        nct=st.sidebar.text_input("NCT / clinical ID", key="pipeline_nct"),
-        source_type=st.sidebar.text_input("Clinical source type", key="pipeline_source_type"),
-        evidence_url=st.sidebar.text_input("Clinical evidence URL", key="pipeline_evidence_url"),
-        note=st.sidebar.text_area("Clinical evidence note", height=80, key="pipeline_note"),
-    )
+    with st.sidebar.expander(bi('05 · Development risk', '05 · 개발 위험'), expanded=False):
+        phase = st.selectbox(tr("Clinical phase"), list(PHASE_POS.keys()), key="pipeline_phase", format_func=formatter())
+        probability_default = PHASE_POS[phase]
+        pipeline = PipelineInput(
+            asset=st.text_input(tr("Pipeline asset"), key="pipeline_asset"),
+            indication=st.text_input(tr("Pipeline indication"), key="pipeline_indication"),
+            phase=phase,
+            launch_year=st.number_input(tr("Expected launch year"), min_value=anchor_year, max_value=anchor_year + 15, step=1, key="pipeline_launch_year"),
+            probability=st.number_input(tr("Probability of success, %"), min_value=0.0, max_value=100.0, step=0.5, key="pipeline_probability"),
+            label_factor=st.number_input(tr("Expected label scope, %"), min_value=0.0, max_value=100.0, step=1.0, key="pipeline_label_factor"),
+            economics=st.number_input(tr("Company economics, %"), min_value=0.0, max_value=100.0, step=1.0, key="pipeline_economics"),
+            nct=st.text_input(tr("NCT / clinical ID"), key="pipeline_nct"),
+            source_type=st.text_input(tr("Clinical source type"), key="pipeline_source_type"),
+            evidence_url=st.text_input(tr("Clinical evidence URL"), key="pipeline_evidence_url"),
+            note=st.text_area(tr("Clinical evidence note"), height=80, key="pipeline_note"),
+        )
 
     input_data = ForecastInput(
         company=company,
@@ -786,14 +787,14 @@ def sidebar_inputs() -> tuple[ForecastInput, PipelineInput, bool]:
 
 
 def render_lookup_panel(input_data: ForecastInput) -> None:
-    with st.expander("Official revenue lookup", expanded=True):
+    with st.expander(tr("Official revenue lookup"), expanded=False):
         cols = st.columns([2, 1, 1])
-        query = cols[0].text_input("Company name, ticker, or CIK", value=input_data.company or "LLY", key="lookup_query")
-        year = cols[1].number_input("FY", min_value=2000, max_value=2100, value=int(input_data.anchor_year), step=1, key="lookup_year")
-        product = cols[2].text_input("Product row keyword", value=input_data.product, key="lookup_product")
-        lookup_mode = st.radio("Lookup mode", ["Built-in reference anchors (unverified)", "Live SEC lookup"], horizontal=True)
+        query = cols[0].text_input(tr(tr("Company name, ticker, or CIK")), value=input_data.company or "LLY", key="lookup_query")
+        year = cols[1].number_input(tr(tr("FY")), min_value=2000, max_value=2100, value=int(input_data.anchor_year), step=1, key="lookup_year")
+        product = cols[2].text_input(tr(tr("Product row keyword")), value=input_data.product, key="lookup_product")
+        lookup_mode = st.radio(tr(tr("Lookup mode")), ["Built-in reference anchors (unverified)", "Live SEC lookup"], horizontal=True, format_func=formatter(), key="rf_lookup_mode")
 
-        if st.button("공식 매출 근거 조회", type="primary", width="stretch"):
+        if st.button(tr("Lookup revenue evidence"), type="primary", width="stretch"):
             st.session_state["lookup_matched"] = False
             anchor = resolve_builtin_anchor(query)
             if anchor and lookup_mode == "Built-in reference anchors (unverified)":
@@ -804,7 +805,7 @@ def render_lookup_panel(input_data: ForecastInput) -> None:
                 st.rerun()
             else:
                 try:
-                    with st.spinner("SEC EDGAR / Company Facts 근거를 확인하는 중입니다."):
+                    with st.spinner(bi("Checking SEC EDGAR / Company Facts…", "SEC EDGAR / Company Facts 조회 중…")):
                         result = sec_lookup_cached(query, int(year) if year else None, product)
                     facts = result.get("total_revenue_facts", [])
                     if facts:
@@ -828,7 +829,7 @@ def render_lookup_panel(input_data: ForecastInput) -> None:
                         st.session_state["lookup_matched"] = True
                         st.success(f"{anchor['name']} FY {anchor['fiscal_year']} SEC anchor를 forecast에 반영했습니다.")
                         st.rerun()
-                    st.warning("SEC structured revenue fact를 찾지 못했습니다. 후보 filing table을 수동 검토하세요.")
+                    st.warning(bi("No structured revenue fact found; inspect the source tables.","구조화된 매출을 찾지 못했습니다. 원문 표를 검토하세요."))
                     st.json(result, expanded=False)
                 except Exception as exc:
                     if anchor:
@@ -845,11 +846,11 @@ def render_lookup_panel(input_data: ForecastInput) -> None:
 
         anchor = st.session_state.get("latest_anchor")
         if anchor:
-            st.markdown("#### Latest anchor")
+            st.markdown(tr("#### Latest anchor"))
             c1, c2, c3 = st.columns(3)
-            c1.metric("Company", anchor["name"])
-            c2.metric("Revenue", fmt_money(float(anchor["value_millions"]), input_data.currency_label))
-            c3.metric("FY / Source", f"{anchor['fiscal_year']} / {anchor['source_type']}")
+            c1.metric(tr(tr("Company")), anchor["name"])
+            c2.metric(tr(tr("Revenue")), fmt_money(float(anchor["value_millions"]), input_data.currency_label))
+            c3.metric(tr(tr("FY / Source")), f"{anchor['fiscal_year']} / {anchor['source_type']}")
             st.caption(anchor.get("note", ""))
 
 
@@ -1165,137 +1166,8 @@ def build_html_report(
 
 
 def main() -> None:
-    render_header()
-    input_data, pipeline, lookup_matched = sidebar_inputs()
-    if input_data.revenue_scope == "Company total":
-        st.error("Company total revenue is not a product TAM anchor. Enter product/indication sales with a matching market share. / 회사 전체 매출은 제품 시장 규모 계산에 사용할 수 없습니다.")
-        render_lookup_panel(input_data)
-        return
-    try:
-        forecast = calculate_forecast(input_data, pipeline.launch_year)
-    except ValueError as exc:
-        st.error(str(exc))
-        return
-    st.warning("Unverified scenario / 미검증 시나리오: metadata completeness is not evidence validation. Verify source table, currency, fiscal period, geography and indication before external use.")
-    pipeline_forecast = calculate_pipeline(input_data, pipeline, forecast)
-    confidence, confidence_note = calculate_confidence(input_data, lookup_matched)
-    checks = validation_checks(input_data, pipeline, forecast, pipeline_forecast, confidence)
-    memo = markdown_memo(input_data, pipeline, forecast, pipeline_forecast, confidence, checks)
-
-    peak = forecast.loc[forecast["Triangulated Forecast"].idxmax()]
-    year5 = forecast.iloc[min(4, len(forecast) - 1)]
-    base_tam = forecast.iloc[0]["Base TAM"]
-    pipeline_peak = pipeline_forecast.loc[pipeline_forecast["Risk-Adjusted Revenue"].idxmax()]
-
-    metric_cols = st.columns(5)
-    metric_cols[0].metric("Peak sales", fmt_money(float(peak["Triangulated Forecast"]), input_data.currency_label), f"FY {int(peak['Year'])}")
-    metric_cols[1].metric("Year 5 forecast", fmt_money(float(year5["Triangulated Forecast"]), input_data.currency_label), "Triangulated")
-    metric_cols[2].metric("Current TAM", fmt_money(float(base_tam), input_data.currency_label), "Sales / current share")
-    metric_cols[3].metric("Risk-adjusted peak", fmt_money(float(pipeline_peak["Risk-Adjusted Revenue"]), input_data.currency_label), f"FY {int(pipeline_peak['Year'])}")
-    metric_cols[4].metric("Metadata completeness", f"{confidence}%", confidence_note or "review needed")
-
-    st.markdown(
-        '<div class="block-note">Business Evidence 모듈은 CMC RA 판단을 대체하지 않습니다. Partner 또는 investor appendix에서 매출 anchor와 가정을 분리해 설명하기 위한 보조 근거입니다.</div>',
-        unsafe_allow_html=True,
-    )
-
-    render_lookup_panel(input_data)
-
-    tab_forecast, tab_calculation, tab_pipeline, tab_insight, tab_validation, tab_export = st.tabs(
-        ["Forecast", "Calculation basis", "Pipeline risk", "Insight report", "Evidence validation", "Export memo"]
-    )
-
-    with tab_forecast:
-        render_visual_dashboard(input_data, pipeline, forecast, pipeline_forecast)
-
-        st.markdown("### Annual Revenue Forecast")
-        chart_df = forecast.melt(
-            id_vars=["Year"],
-            value_vars=["Market Model", "Patient Model", "Triangulated Forecast"],
-            var_name="Model",
-            value_name="Revenue",
-        )
-        fig = px.line(chart_df, x="Year", y="Revenue", color="Model", markers=True)
-        fig.update_layout(height=420, yaxis_title=f"Revenue ({input_data.currency_label} million)", legend_title="")
-        st.plotly_chart(fig, width="stretch")
-
-        table = forecast[
-            [
-                "Year",
-                "Market TAM",
-                "Adjusted Share",
-                "Market Model",
-                "Patient Model",
-                "Triangulated Forecast",
-                "Treated Patients",
-            ]
-        ].copy()
-        table["Adjusted Share"] = table["Adjusted Share"].map(lambda x: f"{x * 100:.1f}%")
-        st.dataframe(table, width="stretch", hide_index=True)
-
-    with tab_calculation:
-        render_calculation_basis(input_data, forecast, pipeline)
-
-    with tab_pipeline:
-        c1, c2, c3, c4 = st.columns(4)
-        risk_factor = float(pipeline_forecast["Risk Factor"].iloc[0])
-        c1.metric("PoS", f"{pipeline.probability:.1f}%")
-        c2.metric("Label scope", f"{pipeline.label_factor:.1f}%")
-        c3.metric("Economics", f"{pipeline.economics:.1f}%")
-        c4.metric("Total risk factor", fmt_pct(risk_factor))
-
-        plot = pipeline_forecast.melt(
-            id_vars=["Year"],
-            value_vars=["Unadjusted Revenue", "Risk-Adjusted Revenue"],
-            var_name="Revenue type",
-            value_name="Revenue",
-        )
-        fig = px.bar(plot, x="Year", y="Revenue", color="Revenue type", barmode="group")
-        fig.update_layout(height=390, yaxis_title=f"Revenue ({input_data.currency_label} million)", legend_title="")
-        st.plotly_chart(fig, width="stretch")
-        st.dataframe(pipeline_forecast, width="stretch", hide_index=True)
-
-    with tab_insight:
-        render_insight_report(input_data, pipeline, forecast, pipeline_forecast, confidence, checks)
-
-    with tab_validation:
-        score_cols = st.columns(3)
-        pass_count = int((checks["Status"] == "Pass").sum())
-        score_cols[0].metric("Passed checks", f"{pass_count}/{len(checks)}")
-        score_cols[1].metric("Metadata completeness", f"{confidence}%")
-        score_cols[2].metric("Open items", int((checks["Status"] != "Pass").sum()))
-        st.dataframe(checks, width="stretch", hide_index=True)
-        st.markdown("#### Source policy")
-        st.markdown(
-            "- Tier A: SEC EDGAR / XBRL, official annual report, DART official filing\n"
-            "- Tier B: CMS, HIRA, payer/utilization public data used as cross-check\n"
-            "- Avoid using news/blog/third-party summaries as the primary revenue anchor"
-        )
-
-    with tab_export:
-        st.download_button(
-            "Markdown memo 다운로드",
-            data=memo.encode("utf-8"),
-            file_name=f"{input_data.company.replace(' ', '_')}_{input_data.product}_revenue_forecast_memo.md",
-            mime="text/markdown",
-            width="stretch",
-        )
-        st.download_button(
-            "Forecast CSV 다운로드",
-            data=build_csv_bytes(forecast, pipeline_forecast),
-            file_name=f"{input_data.company.replace(' ', '_')}_{input_data.product}_forecast.csv",
-            mime="text/csv",
-            width="stretch",
-        )
-        st.download_button(
-            "HTML report 다운로드",
-            data=build_html_report(input_data, pipeline, forecast, pipeline_forecast, confidence, checks),
-            file_name=f"{safe_filename(input_data.company)}_{safe_filename(input_data.product)}_revenue_forecast_report.html",
-            mime="text/html",
-            width="stretch",
-        )
-        st.markdown("#### Memo preview")
-        st.text_area("Markdown", memo, height=520)
+    from rf_ui import render
+    render(sys.modules[__name__])
 
 
 if __name__ == "__main__":
