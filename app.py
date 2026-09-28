@@ -287,6 +287,7 @@ class ForecastInput:
     accession: str
     reviewer_note: str
     currency_label: str
+    revenue_scope: str = "Illustrative assumption"
 
 
 @dataclass
@@ -336,7 +337,12 @@ def sec_lookup_cached(query: str, year: int | None, product: str | None) -> dict
     return run_lookup(query=query, year=year, product=product or None, max_tables=3)
 
 
-def calculate_forecast(input_data: ForecastInput) -> pd.DataFrame:
+def calculate_forecast(input_data: ForecastInput, launch_year: int | None = None) -> pd.DataFrame:
+    if input_data.revenue_scope == "Company total":
+        raise ValueError("Company total revenue cannot be divided by product market share. Supply a matching product/indication anchor.")
+    if input_data.current_share <= 0 or input_data.market_cagr < -100 or input_data.patient_growth < -100:
+        raise ValueError("Share must be positive and growth cannot be below -100%.")
+    launch_year = launch_year if launch_year is not None else input_data.anchor_year + 1
     current_share = clamp(input_data.current_share / 100, 0.001, 1)
     market_cagr = input_data.market_cagr / 100
     initial_share = clamp(input_data.initial_share / 100, 0, 1)
@@ -357,15 +363,16 @@ def calculate_forecast(input_data: ForecastInput) -> pd.DataFrame:
         forecast_year = index + 1
         year = input_data.anchor_year + forecast_year
         market_tam = base_tam * (1 + market_cagr) ** forecast_year
-        ramp = 1 - math.exp(-uptake_speed * forecast_year)
+        commercial_year = max(0, year - launch_year + 1)
+        ramp = 1 - math.exp(-uptake_speed * max(0, commercial_year - 1))
         target_share = initial_share + (peak_share - initial_share) * ramp
-        erosion = max(0, 1 - competition_drag * index)
-        adjusted_share = clamp(target_share * erosion, 0, 1)
+        erosion = max(0, 1 - competition_drag * max(0, commercial_year - 1))
+        adjusted_share = clamp(target_share * erosion, 0, 1) if commercial_year else 0.0
         market_model = market_tam * adjusted_share * payer_access
 
         patient_pool = input_data.patients * (1 + patient_growth) ** forecast_year
         addressable_patients = patient_pool * diagnosis_rate * treatment_rate * eligible_rate
-        treated_patients = addressable_patients * adjusted_share * adherence
+        treated_patients = addressable_patients * adjusted_share * adherence * payer_access
         patient_model = treated_patients * input_data.annual_price / 1_000_000
         triangulated = market_model * market_weight + patient_model * (1 - market_weight)
 
@@ -373,6 +380,7 @@ def calculate_forecast(input_data: ForecastInput) -> pd.DataFrame:
             {
                 "Year": year,
                 "Forecast Year": forecast_year,
+                "Commercial Year": commercial_year,
                 "Base TAM": base_tam,
                 "Market TAM": market_tam,
                 "Adjusted Share": adjusted_share,
@@ -393,6 +401,7 @@ def calculate_pipeline(input_data: ForecastInput, pipeline: PipelineInput, forec
         * clamp(pipeline.label_factor / 100, 0, 1)
         * clamp(pipeline.economics / 100, 0, 1)
     )
+    forecast = calculate_forecast(input_data, pipeline.launch_year)
     rows = []
     for _, row in forecast.iterrows():
         commercial_year = int(row["Year"]) - pipeline.launch_year + 1
@@ -410,31 +419,10 @@ def calculate_pipeline(input_data: ForecastInput, pipeline: PipelineInput, forec
 
 
 def calculate_confidence(input_data: ForecastInput, lookup_matched: bool) -> tuple[int, str]:
-    score = 0
-    notes: list[str] = []
-    source = input_data.source_type.lower()
-    if "sec" in source or "annual" in source or "dart" in source:
-        score += 35
-        notes.append("Tier A source")
-    elif "cms" in source or "hira" in source:
-        score += 24
-        notes.append("Tier B cross-check")
-    else:
-        score += 12
-        notes.append("Manual source")
-    if input_data.evidence_url.startswith("http"):
-        score += 18
-    if input_data.accession and input_data.accession != "manual-review-needed":
-        score += 12
-    if input_data.reported_sales > 0 and input_data.current_share > 0:
-        score += 15
-    if input_data.patients > 0 and input_data.annual_price > 0:
-        score += 10
-    if len(input_data.reviewer_note.strip()) > 40:
-        score += 10
-    if lookup_matched:
-        score += 8
-    return min(score, 100), ", ".join(notes)
+    fields = [bool(input_data.source_type), bool(input_data.evidence_url),
+              bool(input_data.accession and input_data.accession != "manual-review-needed"),
+              bool(input_data.filing_date), bool(input_data.reviewer_note.strip())]
+    return round(100 * sum(fields) / len(fields)), "Metadata completeness only; source values remain unverified. Not a probability or accuracy score."
 
 
 def validation_checks(
@@ -456,21 +444,21 @@ def validation_checks(
         (
             "Evidence",
             "Primary revenue source",
-            "Pass" if any(x in input_data.source_type for x in ["SEC", "Annual", "DART"]) else "Review",
+            "Review",
             input_data.source_type,
             "Use SEC 10-K/20-F, annual report, or DART as the final primary source.",
         ),
         (
             "Evidence",
             "Evidence URL",
-            "Pass" if input_data.evidence_url.startswith("http") else "Fix",
+            "Review" if input_data.evidence_url.startswith("https://") else "Fix",
             input_data.evidence_url or "missing",
             "Keep the source URL in the final memo.",
         ),
         (
             "Evidence",
             "Accession / report ID",
-            "Pass" if input_data.accession and input_data.accession != "manual-review-needed" else "Review",
+            "Review",
             input_data.accession or "missing",
             "Add SEC accession, annual report ID, or official report reference.",
         ),
@@ -511,8 +499,8 @@ def validation_checks(
         ),
         (
             "Overall",
-            "Evidence confidence",
-            "Pass" if confidence >= 85 else "Review" if confidence >= 70 else "Fix",
+            "Metadata completeness",
+            "Review",
             f"{confidence}%",
             "Strengthen source ID, URL, memo, and official lookup before external use.",
         ),
@@ -551,7 +539,9 @@ def markdown_memo(
         f"- Reported sales anchor: {fmt_money(input_data.reported_sales, input_data.currency_label)}",
         f"- Current share assumption: {input_data.current_share:.1f}%",
         f"- Implied base TAM: {fmt_money(base_tam, input_data.currency_label)}",
-        f"- Evidence confidence: {confidence}%",
+        f"- Metadata completeness: {confidence}% (not evidence validity)",
+        "- Source verification: UNVERIFIED; analyst review required.",
+        f"- Revenue scope: {input_data.revenue_scope}",
         "",
         "## Forecast Result",
         "",
@@ -604,6 +594,7 @@ def build_csv_bytes(forecast: pd.DataFrame, pipeline_forecast: pd.DataFrame) -> 
 
 
 def apply_anchor_to_session(anchor: dict[str, Any]) -> None:
+    st.session_state["revenue_scope"] = "Company total"
     st.session_state["company"] = anchor["name"]
     st.session_state["reported_sales"] = float(anchor["value_millions"])
     st.session_state["anchor_year"] = int(anchor["fiscal_year"])
@@ -668,7 +659,7 @@ def render_header() -> None:
         }
         </style>
         <div class="tg-hero">
-          <small>Business Evidence Module</small>
+          <small>Business Evidence Module · RF 1.1.0</small>
           <h1>ToxiGuard Revenue Forecast Intelligence</h1>
           <p>공식 매출 anchor를 기준으로 시장 점유율, 환자 수, 순가격, payer access, 경쟁 강도, 임상 risk를 연결해 partner-ready revenue evidence memo를 만듭니다.</p>
         </div>
@@ -689,12 +680,13 @@ def sidebar_inputs() -> tuple[ForecastInput, PipelineInput, bool]:
             st.session_state[key] = value
 
     st.sidebar.markdown("### 01 공식 매출 Anchor")
+    st.sidebar.selectbox("Revenue scope / 매출 범위", ["Illustrative assumption", "Company total", "Product / indication matched"], key="revenue_scope")
     company = st.sidebar.text_input("Company", key="company")
     product = st.sidebar.text_input("Product / asset", key="product")
     indication = st.sidebar.text_input("Indication market", key="indication")
     currency_label = st.sidebar.selectbox("Currency label", ["USD", "GBP", "EUR", "JPY", "KRW"], key="currency_label")
     reported_sales = st.sidebar.number_input(
-        "Official sales anchor, million",
+        "Revenue input, million",
         min_value=0.0,
         step=10.0,
         key="reported_sales",
@@ -787,6 +779,7 @@ def sidebar_inputs() -> tuple[ForecastInput, PipelineInput, bool]:
         accession=accession,
         reviewer_note=reviewer_note,
         currency_label=currency_label,
+        revenue_scope=st.session_state.get("revenue_scope", "Illustrative assumption"),
     )
     lookup_matched = bool(st.session_state.get("lookup_matched", False))
     return input_data, pipeline, lookup_matched
@@ -798,12 +791,12 @@ def render_lookup_panel(input_data: ForecastInput) -> None:
         query = cols[0].text_input("Company name, ticker, or CIK", value=input_data.company or "LLY", key="lookup_query")
         year = cols[1].number_input("FY", min_value=2000, max_value=2100, value=int(input_data.anchor_year), step=1, key="lookup_year")
         product = cols[2].text_input("Product row keyword", value=input_data.product, key="lookup_product")
-        lookup_mode = st.radio("Lookup mode", ["Built-in verified anchors first", "Live SEC lookup"], horizontal=True)
+        lookup_mode = st.radio("Lookup mode", ["Built-in reference anchors (unverified)", "Live SEC lookup"], horizontal=True)
 
         if st.button("공식 매출 근거 조회", type="primary", width="stretch"):
             st.session_state["lookup_matched"] = False
             anchor = resolve_builtin_anchor(query)
-            if anchor and lookup_mode == "Built-in verified anchors first":
+            if anchor and lookup_mode == "Built-in reference anchors (unverified)":
                 st.session_state["latest_anchor"] = anchor
                 st.session_state["pending_anchor"] = anchor
                 st.session_state["lookup_matched"] = True
@@ -946,7 +939,7 @@ def render_visual_dashboard(
     captured = float(patient_row["Treated Patients"])
     funnel_fig = go.Figure(
         go.Funnel(
-            y=["Patient pool", "Diagnosed", "Treated", "Eligible", "Captured / adherent"],
+            y=["Patient pool", "Diagnosed", "Treated", "Eligible", "Access-adjusted / adherent"],
             x=[patient_pool, diagnosed, treated, eligible, captured],
             marker={"color": ["#1d4ed8", "#0f766e", "#168f86", "#6d4bc3", "#f59e0b"]},
             textinfo="value+percent initial",
@@ -998,7 +991,7 @@ def formula_table(input_data: ForecastInput, forecast: pd.DataFrame) -> pd.DataF
                 "Patient model": (
                     f"{float(row['Addressable Patients']):,.0f} eligible x "
                     f"{float(row['Adjusted Share']) * 100:.1f}% x {adherence * 100:.1f}% x "
-                    f"{input_data.annual_price:,.0f}"
+                    f"{payer_access * 100:.1f}% access x {input_data.annual_price:,.0f} / 1,000,000"
                 ),
                 "Triangulated": (
                     f"{market_weight * 100:.0f}% market + {(1 - market_weight) * 100:.0f}% patient = "
@@ -1030,7 +1023,7 @@ def render_calculation_basis(input_data: ForecastInput, forecast: pd.DataFrame, 
         f"""
         - **Base TAM** = {fmt_money(input_data.reported_sales, input_data.currency_label)} / {input_data.current_share:.1f}%
         - **Market model** = TAM x adjusted share x payer access
-        - **Patient model** = addressable patients x adjusted share x adherence x net annual price
+        - **Patient model** = addressable patients x adjusted share x adherence x payer access x net annual price / 1,000,000
         - **Triangulated forecast** = market model x {input_data.market_weight:.0f}% + patient model x {100 - input_data.market_weight:.0f}%
         - **Risk-adjusted pipeline revenue** = triangulated forecast x {pipeline.probability:.1f}% x {pipeline.label_factor:.1f}% x {pipeline.economics:.1f}%
         """
@@ -1057,7 +1050,7 @@ def render_insight_report(
         f"""
         **Strategic readout: {thesis}**
 
-        Using {input_data.company}'s official sales anchor of **{fmt_money(input_data.reported_sales, input_data.currency_label)}**
+        Using {input_data.company}'s revenue input of **{fmt_money(input_data.reported_sales, input_data.currency_label)}**
         and implied current TAM of **{fmt_money(float(forecast.iloc[0]['Base TAM']), input_data.currency_label)}**, the model estimates
         **Year 5 forecast of {fmt_money(float(year5['Triangulated Forecast']), input_data.currency_label)}** and
         **commercial peak of {fmt_money(float(peak['Triangulated Forecast']), input_data.currency_label)} in FY {int(peak['Year'])}**.
@@ -1074,7 +1067,7 @@ def render_insight_report(
         [
             {
                 "Question": "What is anchored?",
-                "Current answer": f"{input_data.company} official revenue: {fmt_money(input_data.reported_sales, input_data.currency_label)}",
+                "Current answer": f"{input_data.company} reported revenue input: {fmt_money(input_data.reported_sales, input_data.currency_label)}",
                 "Review focus": "Confirm source table, units, footnotes, and whether the number is company-, segment-, product-, or indication-level.",
             },
             {
@@ -1089,7 +1082,7 @@ def render_insight_report(
             },
             {
                 "Question": "Can this be shared externally?",
-                "Current answer": f"Evidence confidence {confidence}%; open checks {(checks['Status'] != 'Pass').sum()}",
+                "Current answer": f"Metadata completeness {confidence}%; open checks {(checks['Status'] != 'Pass').sum()}",
                 "Review focus": "Add accession/report ID and cite official source before presenting as evidence-backed analysis.",
             },
         ]
@@ -1141,15 +1134,15 @@ def build_html_report(
         .note {{ color:#5a6872; font-size:12px; margin-top:24px; }}
       </style>
     </head>
-    <body>
+    <body><p><strong>UNVERIFIED SCENARIO:</strong> Metadata completeness is not source verification. Confirm source values, currency, fiscal year, geography and indication before external use.</p>
       <div class="kicker">ToxiGuard Revenue Forecast Intelligence</div>
       <h1>{esc(input_data.company)} · {esc(input_data.product)}</h1>
       <p>{esc(input_data.indication)} · Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>
       <div class="grid">
-        <div class="metric"><span>Official anchor</span><strong>{esc(fmt_money(input_data.reported_sales, input_data.currency_label))}</strong><small>FY {input_data.anchor_year}</small></div>
+        <div class="metric"><span>Revenue input</span><strong>{esc(fmt_money(input_data.reported_sales, input_data.currency_label))}</strong><small>FY {input_data.anchor_year}</small></div>
         <div class="metric"><span>Year 5 forecast</span><strong>{esc(fmt_money(float(year5['Triangulated Forecast']), input_data.currency_label))}</strong><small>FY {int(year5['Year'])}</small></div>
         <div class="metric"><span>Commercial peak</span><strong>{esc(fmt_money(float(peak['Triangulated Forecast']), input_data.currency_label))}</strong><small>FY {int(peak['Year'])}</small></div>
-        <div class="metric"><span>Risk-adjusted peak</span><strong>{esc(fmt_money(float(pipeline_peak['Risk-Adjusted Revenue']), input_data.currency_label))}</strong><small>confidence {confidence}%</small></div>
+        <div class="metric"><span>Risk-adjusted peak</span><strong>{esc(fmt_money(float(pipeline_peak['Risk-Adjusted Revenue']), input_data.currency_label))}</strong><small>metadata completeness {confidence}%</small></div>
       </div>
       <div class="box">
         <h2>Conclusion</h2>
@@ -1157,7 +1150,7 @@ def build_html_report(
         <p>{esc(watch)}</p>
       </div>
       <h2>Calculation Basis</h2>
-      <p>Base TAM = official sales anchor / current share. Market and patient models are triangulated by evidence weighting, then adjusted by clinical PoS, label scope, and company economics.</p>
+      <p>Base TAM = revenue input / current share. Market and patient models are triangulated by user-selected weighting (not statistically validated), then adjusted by clinical PoS, label scope, and company economics.</p>
       <h2>Annual Forecast</h2>
       {display_forecast.to_html(index=False)}
       <h2>Pipeline Risk Adjustment</h2>
@@ -1174,7 +1167,16 @@ def build_html_report(
 def main() -> None:
     render_header()
     input_data, pipeline, lookup_matched = sidebar_inputs()
-    forecast = calculate_forecast(input_data)
+    if input_data.revenue_scope == "Company total":
+        st.error("Company total revenue is not a product TAM anchor. Enter product/indication sales with a matching market share. / 회사 전체 매출은 제품 시장 규모 계산에 사용할 수 없습니다.")
+        render_lookup_panel(input_data)
+        return
+    try:
+        forecast = calculate_forecast(input_data, pipeline.launch_year)
+    except ValueError as exc:
+        st.error(str(exc))
+        return
+    st.warning("Unverified scenario / 미검증 시나리오: metadata completeness is not evidence validation. Verify source table, currency, fiscal period, geography and indication before external use.")
     pipeline_forecast = calculate_pipeline(input_data, pipeline, forecast)
     confidence, confidence_note = calculate_confidence(input_data, lookup_matched)
     checks = validation_checks(input_data, pipeline, forecast, pipeline_forecast, confidence)
@@ -1190,7 +1192,7 @@ def main() -> None:
     metric_cols[1].metric("Year 5 forecast", fmt_money(float(year5["Triangulated Forecast"]), input_data.currency_label), "Triangulated")
     metric_cols[2].metric("Current TAM", fmt_money(float(base_tam), input_data.currency_label), "Sales / current share")
     metric_cols[3].metric("Risk-adjusted peak", fmt_money(float(pipeline_peak["Risk-Adjusted Revenue"]), input_data.currency_label), f"FY {int(pipeline_peak['Year'])}")
-    metric_cols[4].metric("Evidence confidence", f"{confidence}%", confidence_note or "review needed")
+    metric_cols[4].metric("Metadata completeness", f"{confidence}%", confidence_note or "review needed")
 
     st.markdown(
         '<div class="block-note">Business Evidence 모듈은 CMC RA 판단을 대체하지 않습니다. Partner 또는 investor appendix에서 매출 anchor와 가정을 분리해 설명하기 위한 보조 근거입니다.</div>',
@@ -1260,7 +1262,7 @@ def main() -> None:
         score_cols = st.columns(3)
         pass_count = int((checks["Status"] == "Pass").sum())
         score_cols[0].metric("Passed checks", f"{pass_count}/{len(checks)}")
-        score_cols[1].metric("Evidence confidence", f"{confidence}%")
+        score_cols[1].metric("Metadata completeness", f"{confidence}%")
         score_cols[2].metric("Open items", int((checks["Status"] != "Pass").sum()))
         st.dataframe(checks, width="stretch", hide_index=True)
         st.markdown("#### Source policy")
