@@ -23,17 +23,11 @@ for import_path in (APP_DIR, WORKSPACE_ROOT):
     if str(import_path) not in sys.path:
         sys.path.insert(0, str(import_path))
 
-try:
-    from revenue_filing_tool import run_lookup
-except Exception:  # pragma: no cover - app still works with built-in anchors
-    run_lookup = None
-
-
 st.set_page_config(
-    page_title="ToxiGuard Revenue Forecast",
+    page_title="NORA | Pharma Revenue Comparison",
     page_icon="TG",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
 
@@ -325,17 +319,48 @@ def normalise_company_query(query: str) -> str:
     return " ".join("".join(ch if ch.isalnum() or ch in {"&", " "} else " " for ch in query.upper()).split())
 
 
-def resolve_builtin_anchor(query: str) -> dict[str, Any] | None:
+def resolve_builtin_anchor(query: str, year: int | None = None) -> dict[str, Any] | None:
     cleaned = normalise_company_query(query)
     ticker = COMPANY_ALIASES.get(cleaned, cleaned)
-    return VERIFIED_REVENUE_ANCHORS.get(ticker)
+    anchor = VERIFIED_REVENUE_ANCHORS.get(ticker)
+    if anchor and year is not None and anchor["fiscal_year"] != year:
+        return None
+    return anchor
 
 
 @st.cache_data(show_spinner=False, ttl=60 * 60)
 def sec_lookup_cached(query: str, year: int | None, product: str | None) -> dict[str, Any]:
-    if run_lookup is None:
-        raise RuntimeError("revenue_filing_tool.run_lookup is not available.")
-    return run_lookup(query=query, year=year, product=product or None, max_tables=3)
+    """Return one annual company total for the explicitly requested fiscal year."""
+    from nora_data import fetch_company_revenue, search_companies
+
+    if year is None:
+        raise ValueError("Choose a fiscal year before looking up company revenue.")
+    candidates = search_companies(query)
+    if len(candidates) != 1:
+        raise ValueError("Use one supported company name or its exact ticker.")
+    rows = fetch_company_revenue(candidates[0]["ticker"])
+    matches = [row for row in rows if row["fiscal_year"] == int(year)]
+    if len(matches) != 1:
+        raise ValueError(f"No unambiguous annual company revenue is available for FY {year}.")
+    row = matches[0]
+    return {
+        "ticker": row["ticker"],
+        "name": row["company"],
+        "value_millions": float(row["revenue"]) / 1_000_000,
+        "fiscal_year": row["fiscal_year"],
+        "filed": row["filed"],
+        "concept": row["concept"],
+        "unit": f"{row['currency']} millions",
+        "source_type": "SEC EDGAR 10-K / 20-F",
+        "source_url": row["source_url"],
+        "accession": row["accession"],
+        "period_start": row["period_start"],
+        "period_end": row["period_end"],
+        "note": (
+            f"SEC annual company revenue, {row['period_start']}–{row['period_end']}. "
+            "Company totals cannot be used as a product or indication market anchor."
+        ),
+    }
 
 
 def calculate_forecast(input_data: ForecastInput, launch_year: int | None = None) -> pd.DataFrame:
@@ -595,6 +620,9 @@ def build_csv_bytes(forecast: pd.DataFrame, pipeline_forecast: pd.DataFrame) -> 
 
 
 def apply_anchor_to_session(anchor: dict[str, Any]) -> None:
+    currency = anchor.get("unit", "USD").split()[0].upper()
+    if currency not in {"USD", "GBP", "EUR", "JPY", "KRW", "DKK"}:
+        raise ValueError(f"Unsupported forecast currency: {currency}.")
     st.session_state["revenue_scope"] = "Company total"
     st.session_state["company"] = anchor["name"]
     st.session_state["reported_sales"] = float(anchor["value_millions"])
@@ -603,35 +631,45 @@ def apply_anchor_to_session(anchor: dict[str, Any]) -> None:
     st.session_state["evidence_url"] = anchor["source_url"]
     st.session_state["filing_date"] = anchor["filed"]
     st.session_state["accession"] = anchor["accession"]
-    if anchor.get("unit", "").upper().startswith("GBP"):
-        st.session_state["currency_label"] = "GBP"
-    else:
-        st.session_state["currency_label"] = "USD"
+    st.session_state["currency_label"] = currency
+
+
+def scenario_session_defaults(defaults: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **defaults,
+        "revenue_scope": "Illustrative assumption",
+        "currency_label": "USD",
+        "source_type": "Manual review needed",
+        "evidence_url": "",
+        "filing_date": "",
+        "accession": "manual-review-needed",
+        "reviewer_note": "Illustrative scenario. Supply matching product or indication evidence before external use.",
+        "pipeline_asset": defaults["product"],
+        "pipeline_indication": defaults["indication"],
+        "pipeline_phase": "Phase 2",
+        "pipeline_launch_year": int(defaults["anchor_year"]) + 3,
+        "pipeline_probability": PHASE_POS["Phase 2"],
+        "pipeline_label_factor": 65.0,
+        "pipeline_economics": 100.0,
+        "pipeline_nct": "",
+        "pipeline_source_type": "ClinicalTrials.gov / company IR",
+        "pipeline_evidence_url": "",
+        "pipeline_note": "",
+    }
 
 
 def ensure_session_defaults(defaults: dict[str, Any]) -> None:
-    for key, value in defaults.items():
+    for key, value in scenario_session_defaults(defaults).items():
         st.session_state.setdefault(key, value)
-    st.session_state.setdefault("currency_label", "USD")
-    st.session_state.setdefault("source_type", "Manual review needed")
-    st.session_state.setdefault("evidence_url", "")
-    st.session_state.setdefault("filing_date", "")
-    st.session_state.setdefault("accession", "manual-review-needed")
-    st.session_state.setdefault(
-        "reviewer_note",
-        "Company-level revenue must be separated from product-level or indication-level market assumptions before external use.",
-    )
-    st.session_state.setdefault("pipeline_asset", st.session_state.get("product", defaults["product"]))
-    st.session_state.setdefault("pipeline_indication", st.session_state.get("indication", defaults["indication"]))
-    st.session_state.setdefault("pipeline_phase", "Phase 2")
-    st.session_state.setdefault("pipeline_launch_year", int(st.session_state.get("anchor_year", defaults["anchor_year"])) + 3)
-    st.session_state.setdefault("pipeline_probability", PHASE_POS["Phase 2"])
-    st.session_state.setdefault("pipeline_label_factor", 65.0)
-    st.session_state.setdefault("pipeline_economics", 100.0)
-    st.session_state.setdefault("pipeline_nct", "NCT review needed")
-    st.session_state.setdefault("pipeline_source_type", "ClinicalTrials.gov / company IR")
-    st.session_state.setdefault("pipeline_evidence_url", "https://clinicaltrials.gov/")
-    st.session_state.setdefault("pipeline_note", "")
+
+
+def load_scenario(scenario: str) -> None:
+    """Reset the scenario and its provenance only after an explicit load action."""
+    for key, value in scenario_session_defaults(SCENARIOS[scenario]).items():
+        st.session_state[key] = value
+    for key in ("latest_anchor", "pending_anchor", "lookup_query", "lookup_year", "lookup_product", "rf_lookup_notice"):
+        st.session_state.pop(key, None)
+    st.session_state["lookup_matched"] = False
 
 
 def render_header() -> None:
@@ -670,22 +708,21 @@ def render_header() -> None:
 
 
 def sidebar_inputs() -> tuple[ForecastInput, PipelineInput, bool]:
-    scenario = st.sidebar.selectbox(tr("Scenario template"), list(SCENARIOS.keys()), format_func=formatter())
+    scenario = st.sidebar.selectbox(tr("Scenario template"), list(SCENARIOS.keys()), format_func=formatter(), key="rf_scenario_template")
     defaults = SCENARIOS[scenario]
     pending_anchor = st.session_state.pop("pending_anchor", None)
     if pending_anchor:
         apply_anchor_to_session(pending_anchor)
     ensure_session_defaults(defaults)
     if st.sidebar.button(tr("Load scenario"), width="stretch"):
-        for key, value in SCENARIOS[scenario].items():
-            st.session_state[key] = value
+        load_scenario(scenario)
 
     with st.sidebar.expander(bi('01 · Revenue anchor', '01 · 매출 근거'), expanded=True):
         st.selectbox(tr("Revenue scope / 매출 범위"), ["Illustrative assumption", "Company total", "Product / indication matched"], key="revenue_scope", format_func=formatter())
         company = st.text_input(tr("Company"), key="company")
         product = st.text_input(tr("Product / asset"), key="product")
         indication = st.text_input(tr("Indication market"), key="indication")
-        currency_label = st.selectbox(tr("Currency label"), ["USD", "GBP", "EUR", "JPY", "KRW"], key="currency_label", format_func=formatter())
+        currency_label = st.selectbox(tr("Currency label"), ["USD", "GBP", "EUR", "JPY", "KRW", "DKK"], key="currency_label", format_func=formatter())
         reported_sales = st.number_input(
             tr("Revenue input, million"),
             min_value=0.0,
@@ -786,72 +823,66 @@ def sidebar_inputs() -> tuple[ForecastInput, PipelineInput, bool]:
     return input_data, pipeline, lookup_matched
 
 
+def lookup_company_anchor(query: str, year: int, live: bool) -> dict[str, Any]:
+    if live:
+        return sec_lookup_cached(query, year, None)
+    anchor = resolve_builtin_anchor(query, year)
+    if anchor is None:
+        raise ValueError(f"No built-in reference exists for this company and FY {year}.")
+    return dict(anchor)
+
+
 def render_lookup_panel(input_data: ForecastInput) -> None:
     with st.expander(tr("Official revenue lookup"), expanded=False):
-        cols = st.columns([2, 1, 1])
-        query = cols[0].text_input(tr(tr("Company name, ticker, or CIK")), value=input_data.company or "LLY", key="lookup_query")
-        year = cols[1].number_input(tr(tr("FY")), min_value=2000, max_value=2100, value=int(input_data.anchor_year), step=1, key="lookup_year")
-        product = cols[2].text_input(tr(tr("Product row keyword")), value=input_data.product, key="lookup_product")
-        lookup_mode = st.radio(tr(tr("Lookup mode")), ["Built-in reference anchors (unverified)", "Live SEC lookup"], horizontal=True, format_func=formatter(), key="rf_lookup_mode")
+        cols = st.columns([3, 1])
+        st.session_state.setdefault("lookup_query", input_data.company or "LLY")
+        st.session_state.setdefault("lookup_year", int(input_data.anchor_year))
+        query = cols[0].text_input(bi("Company name or ticker", "회사명 / 티커"), key="lookup_query")
+        year = cols[1].number_input(tr("FY"), min_value=2000, max_value=2100, step=1, key="lookup_year")
+        lookup_mode = st.radio(tr("Lookup mode"), ["Built-in reference anchors (unverified)", "Live SEC lookup"], horizontal=True, format_func=formatter(), key="rf_lookup_mode")
+        st.caption(bi(
+            "This lookup returns company totals. Product and indication forecasts need revenue evidence with a matching scope.",
+            "회사 전체 매출을 조회합니다. 제품·적응증 예측에는 같은 범위의 매출 근거가 필요합니다.",
+        ))
 
         if st.button(tr("Lookup revenue evidence"), type="primary", width="stretch"):
             st.session_state["lookup_matched"] = False
-            anchor = resolve_builtin_anchor(query)
-            if anchor and lookup_mode == "Built-in reference anchors (unverified)":
+            st.session_state.pop("latest_anchor", None)
+            st.session_state.pop("rf_lookup_notice", None)
+            live = lookup_mode == "Live SEC lookup"
+            try:
+                with st.spinner(bi("Looking up annual company revenue…", "회사의 연간 매출을 조회합니다…")):
+                    anchor = lookup_company_anchor(query, int(year), live)
                 st.session_state["latest_anchor"] = anchor
                 st.session_state["pending_anchor"] = anchor
-                st.session_state["lookup_matched"] = True
-                st.success(f"{anchor['name']} FY {anchor['fiscal_year']} anchor를 forecast에 반영했습니다.")
-                st.rerun()
+                st.session_state["lookup_matched"] = live
+                st.session_state["rf_lookup_notice"] = {
+                    "kind": "success",
+                    "en": f"Loaded {anchor['name']} FY {anchor['fiscal_year']} as company-total evidence. Product forecasts remain blocked for this scope.",
+                    "ko": f"{anchor['name']}의 FY {anchor['fiscal_year']} 자료를 회사 전체 매출 근거로 불러왔습니다. 이 범위로 제품 매출을 예측할 수는 없습니다.",
+                }
+            except Exception as exc:
+                st.session_state["rf_lookup_notice"] = {
+                    "kind": "error",
+                    "en": f"Lookup failed. Existing forecast inputs are unchanged. {exc}",
+                    "ko": f"조회하지 못했습니다. 기존 예측 입력값은 유지됩니다. {exc}",
+                }
             else:
-                try:
-                    with st.spinner(bi("Checking SEC EDGAR / Company Facts…", "SEC EDGAR / Company Facts 조회 중…")):
-                        result = sec_lookup_cached(query, int(year) if year else None, product)
-                    facts = result.get("total_revenue_facts", [])
-                    if facts:
-                        fact = facts[0]
-                        company = result.get("company", {})
-                        anchor = {
-                            "ticker": company.get("ticker") or "",
-                            "name": company.get("name") or query,
-                            "value_millions": float(fact["value"]) / 1_000_000,
-                            "fiscal_year": int(fact["fiscal_year"]),
-                            "filed": fact.get("filed", ""),
-                            "concept": fact.get("concept", "Revenue"),
-                            "unit": f"{fact.get('unit', 'USD')} millions",
-                            "source_type": "SEC EDGAR 10-K / 20-F",
-                            "source_url": fact.get("source_url", ""),
-                            "accession": fact.get("accession", ""),
-                            "note": "SEC Company Facts lookup. Confirm source table and unit before external use.",
-                        }
-                        st.session_state["latest_anchor"] = anchor
-                        st.session_state["pending_anchor"] = anchor
-                        st.session_state["lookup_matched"] = True
-                        st.success(f"{anchor['name']} FY {anchor['fiscal_year']} SEC anchor를 forecast에 반영했습니다.")
-                        st.rerun()
-                    st.warning(bi("No structured revenue fact found; inspect the source tables.","구조화된 매출을 찾지 못했습니다. 원문 표를 검토하세요."))
-                    st.json(result, expanded=False)
-                except Exception as exc:
-                    if anchor:
-                        st.session_state["latest_anchor"] = anchor
-                        st.session_state["pending_anchor"] = anchor
-                        st.session_state["lookup_matched"] = True
-                        st.warning(f"Live SEC 조회는 실패했지만 built-in anchor를 반영했습니다: {type(exc).__name__}")
-                        st.rerun()
-                    st.error(f"조회 실패: {type(exc).__name__}: {exc}")
-                    st.code(
-                        f'SEC_USER_AGENT="Your Name your@email.com" python3 revenue_filing_tool.py lookup {query} --year {year} --product "{product}"',
-                        language="bash",
-                    )
+                st.rerun()
 
+        notice = st.session_state.get("rf_lookup_notice")
+        if notice:
+            getattr(st, notice["kind"])(bi(notice["en"], notice["ko"]))
         anchor = st.session_state.get("latest_anchor")
         if anchor:
             st.markdown(tr("#### Latest anchor"))
             c1, c2, c3 = st.columns(3)
-            c1.metric(tr(tr("Company")), anchor["name"])
-            c2.metric(tr(tr("Revenue")), fmt_money(float(anchor["value_millions"]), input_data.currency_label))
-            c3.metric(tr(tr("FY / Source")), f"{anchor['fiscal_year']} / {anchor['source_type']}")
+            c1.metric(tr("Company"), anchor["name"])
+            currency = anchor.get("unit", "USD").split()[0]
+            c2.metric(tr("Revenue"), fmt_money(float(anchor["value_millions"]), currency))
+            c3.metric(tr("FY / Source"), f"{anchor['fiscal_year']} / {tr(anchor['source_type'])}")
             st.caption(anchor.get("note", ""))
+            st.markdown(f"[{bi('Open source', '출처 원문 열기')}]({anchor['source_url']})")
 
 
 def safe_filename(value: str) -> str:
@@ -1166,7 +1197,7 @@ def build_html_report(
 
 
 def main() -> None:
-    from rf_ui import render
+    from nora_ui import render
     render(sys.modules[__name__])
 
 

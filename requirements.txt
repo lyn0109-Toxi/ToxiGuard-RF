@@ -1,5 +1,5 @@
 streamlit>=1.57
-pandas>=2.0
+pandas>=2.1
 plotly>=5.0
 requests>=2.31
 html5lib>=1.1

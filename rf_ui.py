@@ -13,8 +13,9 @@ def chart(fig, currency):
     fig.update_layout(template='plotly_white',height=390,margin=dict(l=16,r=16,t=30,b=30),font=dict(family='Arial, Noto Sans KR, sans-serif',size=14),legend=dict(orientation='h',y=1.14),yaxis_title=bi(f'{currency} million',f'{currency} 백만'),xaxis_title=None,hovermode='x unified')
     st.plotly_chart(fig,width='stretch')
 
-def render(app):
-    st.sidebar.radio('Language / 언어',['en','ko'],format_func=lambda x:'English' if x=='en' else '한국어',key='rf_lang',horizontal=True)
+def render(app, show_language=True):
+    if show_language:
+        st.sidebar.radio('Language / 언어',['en','ko'],format_func=lambda x:'English' if x=='en' else '한국어',key='rf_lang',horizontal=True)
     st.markdown('''<style>
     .stApp{background:#F4F6F8;color:#183044} .block-container{max-width:1400px;padding-top:2rem}
     [data-testid="stSidebar"]{background:#fff;border-right:1px solid #e0e6eb}

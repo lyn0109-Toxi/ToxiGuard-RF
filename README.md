@@ -1,54 +1,87 @@
-# ToxiGuard Revenue Forecast Streamlit
+# NORA — Pharma Revenue Comparison
 
-Streamlit migration of the Revenue Forecast Intelligence workspace.
+NORA opens with company revenue comparison. Search 18 supported pharmaceutical
+issuers by Korean/English name, ticker, or CIK; select up to six; compare annual
+reported revenue and year-over-year growth; inspect fiscal periods and sources;
+download a CSV. English and Korean are supported. The existing ToxiGuard product
+revenue scenario workspace remains available through the sidebar.
 
-This version keeps the original web app logic but reorganizes it as a Streamlit evidence dashboard with forecast, calculation basis, pipeline risk, insight report, validation, and export tabs.
-
-## Positioning
-
-This module is the Business Evidence appendix for ToxiGuard-Platform. It does not replace CMC RA, regulatory, clinical, financial, or investment judgment. It helps a reviewer separate:
-
-- official revenue anchor
-- market-share assumptions
-- patient-based cross-check
-- payer access and competition assumptions
-- pipeline probability / label / economics risk adjustment
-- evidence traceability and open review items
-
-## Run Locally
+## Run
 
 ```bash
-cd /Users/leeyoung-nam/Desktop/ToxiGuard
-python3 -m streamlit run ToxiGuard-Revenue-Forecast/app.py --server.port 8511
+python3 -m pip install -r requirements.txt
+python3 -m streamlit run streamlit_app.py
 ```
 
-Then open:
+The Streamlit Cloud entrypoint remains `streamlit_app.py` in the repository root.
+Deploy all files together, including `nora_data.py`, `nora_ui.py`, `data/`, and
+`.streamlit/config.toml`. Uploading only `app.py` is insufficient.
 
-```text
-http://localhost:8511
+## What the initial screen contains
+
+The bundled dataset contains **2023–2025** annual consolidated revenue for
+**Eli Lilly, Pfizer, and Merck & Co. (US/MSD)**. These are official report
+snapshots checked on **2026-09-28**, not a live feed. See
+[source tables and provenance](data/SOURCES.md). Original reported precision is
+preserved: whole USD millions are converted to USD units without implying
+greater accuracy. Source pages, report identifiers, fiscal dates and notes are
+included with the rows.
+
+The wider registry supports SEC refresh for 18 issuers. Search availability does
+not guarantee that an annual revenue tag is available for that company. Domestic
+Korean companies/DART, currency conversion, quarterly/TTM comparison, and product
+or indication revenue comparison are not connected in this company workspace.
+
+## SEC refresh
+
+`SEC_USER_AGENT` may be configured as an environment variable or a Streamlit
+secret with the operator's real organization and contact email:
+
+```toml
+SEC_USER_AGENT = "Organization contact@example.org"
 ```
 
-Streamlit Cloud entrypoint when deployed as the standalone `ToxiGuard-RF` repository:
+Replace the example with a real operator contact; do not commit secrets. Without
+configuration, the client truthfully identifies NORA and this repository URL.
+SEC may deny a deployment's network/IP even when the header is configured.
+During this release validation, live Company Facts requests returned HTTP 403.
+The app explicitly reports failure and retains the original source/date of any
+previously loaded data. It never presents a saved snapshot as a successful live
+refresh. Successful results are cached for one hour with their original retrieval
+timestamp; companies are loaded sequentially.
 
-```text
-streamlit_app.py
+## Comparison rules
+
+- Annual duration facts only (330–400 days); quarter/YTD facts are excluded.
+- Only an explicit allowlist of standard consolidated revenue concepts is used.
+- Actual period start/end determines the observation, not the filing's `fy`
+  context. Comparative columns and restatements retain their provenance.
+- Takeda's April–March fiscal year is labelled by its starting year. Other
+  issuer years use filing metadata or explicitly marked period-derived years.
+- Reported currencies are kept separate. The app never ranks across currencies.
+- Growth requires adjacent comparable annual periods, positive prior revenue,
+  and a consistent currency/concept. Prior-year values from the same filing are
+  preferred; incompatible restatements leave growth blank.
+- Company revenue may include non-pharmaceutical divisions and collaboration
+  income. Fiscal dates and corporate scope must be checked when interpreting
+  comparisons. Growth is nominal, not currency/acquisition adjusted.
+
+## Product revenue scenarios
+
+The original scenario calculations are retained. Switching workspaces or
+languages preserves input state. Loading a scenario explicitly resets its
+evidence, currency and pipeline inputs. Company-total revenue remains blocked
+from use as a product/indication market anchor. Live lookup never silently falls
+back to unverified built-in reference data; reference lookups require a matching
+fiscal year.
+
+## Validation
+
+```bash
+python3 -m unittest discover -v
 ```
 
-## Core Outputs
-
-- Peak sales and Year 5 forecast
-- Market model vs patient model triangulation
-- Pipeline risk-adjusted revenue bridge
-- Visual evidence dashboard: sales anchor -> TAM -> market model -> patient model -> risk-adjusted peak
-- Calculation basis table with year-by-year formulas
-- Insight report connecting company revenue, clinical program, future target market, and risk-adjusted contribution
-- Evidence validation checklist
-- Markdown evidence memo
-- HTML report
-- Forecast CSV
-
-## Evidence Policy
-
-Use SEC EDGAR, SEC XBRL Company Facts, DART, and official company annual reports as primary revenue evidence. Use CMS/HIRA or other public payer/utilization data as cross-checks, not direct substitutes for company-reported net sales.
-
-Built-in official anchors are demo/reference anchors copied from the existing local Revenue Forecast workspace. Before external use, confirm the source table, unit, fiscal year, accession/report ID, footnotes, product scope, collaboration/royalty treatment, and whether the number is company-level, product-level, or indication-level.
+Tests cover annual-vs-quarterly facts, comparative years, restatements, foreign
+currencies, fiscal labels, Korean aliases, growth gaps, source preservation,
+failed refresh, language/workspace state, and the existing forecast model.
+Fixtures and mocked UI refresh tests do not imply successful live SEC access.
