@@ -249,6 +249,9 @@ def render(app):
         'nora_selected','nora_query','nora_candidate','nora_year',
         'rf_scenario_template','lookup_query','lookup_year','lookup_product','rf_lookup_mode',
     }
+    # Case editor values live in a durable dictionary; button/editor widget
+    # states must not be assigned through session_state.
+    persistent_keys.add('tel_case_strategy')
     for key in persistent_keys:
         if key in st.session_state:
             st.session_state[key]=st.session_state[key]
@@ -257,10 +260,18 @@ def render(app):
     st.sidebar.markdown('<div class="nora-brand">NORA</div>',unsafe_allow_html=True)
     st.sidebar.caption('PHARMA REVENUE INTELLIGENCE · 1.3.0')
     st.sidebar.radio('Language / 언어',['ko','en'],format_func=lambda v:'한국어' if v=='ko' else 'English',key='rf_lang',horizontal=True)
+    if 'nora_mode' not in st.session_state:
+        st.session_state.nora_mode='telmisartan' if st.query_params.get('case')=='telmisartan' else 'companies'
     mode_labels={'companies':bi('Company revenue comparison','회사 매출 비교'),
-                 'forecast':bi('Product revenue scenarios','제품 매출 시나리오')}
-    mode=st.sidebar.radio(bi('Workspace','작업 화면'),['companies','forecast'],
+                 'forecast':bi('Product revenue scenarios','제품 매출 시나리오'),
+                 'telmisartan':bi('Telmisartan case study','Telmisartan 사례 연구')}
+    mode=st.sidebar.radio(bi('Workspace','작업 화면'),['companies','forecast','telmisartan'],
                           format_func=lambda v:mode_labels[v],key='nora_mode')
+    if mode=='telmisartan':
+        from telmisartan_ui import render as render_case
+        style()
+        render_case(app)
+        return
     if mode=='forecast':
         from rf_ui import render as render_forecast
         render_forecast(app,show_language=False)

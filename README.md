@@ -85,3 +85,34 @@ Tests cover annual-vs-quarterly facts, comparative years, restatements, foreign
 currencies, fiscal labels, Korean aliases, growth gaps, source preservation,
 failed refresh, language/workspace state, and the existing forecast model.
 Fixtures and mocked UI refresh tests do not imply successful live SEC access.
+
+## Telmisartan case study (local integration)
+
+Open `?case=telmisartan` or select **Telmisartan 사례 연구**. The case compares
+three hypothetical Korean development strategies: monotherapy generic,
+telmisartan/amlodipine, and telmisartan/amlodipine/indapamide. Source records,
+reported Yuhan Twynsta sales, and editable commercial assumptions are separated.
+The reference product's clinical/approval status is not the hypothetical
+project's development stage or probability of success.
+
+Revenue is a patient-based scenario, not a market inferred from company sales.
+All commercial defaults are teaching assumptions. Result money is displayed in
+KRW 100 million; raw CSV fields ending `_krw_m` are KRW million. Peak within the
+2027–2034 horizon and revenue at target share/base-year patients are distinct.
+Net contribution subtracts success-weighted post-launch fixed costs and the
+full development budget; it is not profit, NPV or valuation.
+
+`telmisartan_case.py` and `data/telmisartan_case.json` are shared byte-for-byte
+with VCC. The JSON handoff preserves edited assumptions; VCC validates scope
+and recalculates numbers. Its link opens case defaults, not the edited values.
+Set `VCC_APP_URL` to the paired local preview when testing. Defaults point to
+the existing public app, which needs the matching VCC update before this case
+can be opened there. Source snapshot reviewed 2026-09-28–29. No public deployment
+was performed as part of creating this case.
+
+The case assumption tab can restore a saved NORA or VCC JSON after validation.
+Only the selected strategy is replaced; other case assumptions and existing
+company/forecast inputs remain unchanged. Product revenue context now includes
+Yuhan Twynsta domestic sales and CKD Telminuvo reported product sales for
+2023–2025. CKD does not split domestic/export sales in this product row; keep
+that scope difference visible and do not infer comparable market shares.

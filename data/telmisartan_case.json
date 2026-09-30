@@ -1,0 +1,310 @@
+{
+  "case_id": "telmisartan-kr-2026",
+  "title_ko": "Telmisartan: 파이프라인·매출·개발전략",
+  "title_en": "Telmisartan: pipeline, revenue and development strategy",
+  "as_of": "2026-09-29",
+  "market": "KR",
+  "currency": "KRW",
+  "anchor_year": 2026,
+  "horizon": 8,
+  "strategies": [
+    {
+      "id": "generic",
+      "label_ko": "A · 단일제 제네릭",
+      "label_en": "A · Single-agent generic",
+      "composition_ko": "Telmisartan 단일제",
+      "composition_en": "Telmisartan monotherapy",
+      "development_ko": "원가·공급 안정성과 유통 접근성 중심. 적격 대조약·동등성·특허 검토 후 범위를 정한다.",
+      "development_en": "Compete on cost, reliable supply and distribution; confirm the reference product, equivalence and IP pathway.",
+      "vcc_focus_ko": "API/DMF 추적성, 제형·결정형과 용출, 불순물·안정성, 함량·유연물질 시험법",
+      "vcc_focus_en": "API/DMF traceability, solid form and dissolution, impurities/stability, assay and related-substance methods",
+      "assumptions": {
+        "launch_year": 2028,
+        "eligible_patients": 1000000,
+        "annual_net_price_krw": 72000,
+        "initial_share_pct": 1,
+        "peak_share_pct": 8,
+        "ramp_years": 3,
+        "access_pct": 80,
+        "adherence_pct": 80,
+        "success_pct": 85,
+        "economics_pct": 100,
+        "contribution_margin_pct": 40,
+        "development_cost_krw_m": 1500,
+        "annual_fixed_cost_krw_m": 150,
+        "growth_pct": 0
+      }
+    },
+    {
+      "id": "dual",
+      "label_ko": "B · 2제 복합제",
+      "label_en": "B · Dual combination",
+      "composition_ko": "Telmisartan + amlodipine",
+      "composition_en": "Telmisartan + amlodipine",
+      "development_ko": "기존 2제 시장에서 제형·공급·채널의 차별화 가능성을 검토한다. S-amlodipine 제품과 별도 비교한다.",
+      "development_en": "Test formulation, supply and channel differentiation in an established dual market; separate S-amlodipine comparators.",
+      "vcc_focus_ko": "성분별 정량·회수율, 성분 간 간섭·분해, 용출 조건·동등성, 복합제 함량비와 안정성",
+      "vcc_focus_en": "Component-specific assay/recovery, interference/degradation, dissolution/equivalence, dose ratio and stability",
+      "assumptions": {
+        "launch_year": 2029,
+        "eligible_patients": 700000,
+        "annual_net_price_krw": 126000,
+        "initial_share_pct": 1,
+        "peak_share_pct": 12,
+        "ramp_years": 3,
+        "access_pct": 75,
+        "adherence_pct": 80,
+        "success_pct": 70,
+        "economics_pct": 100,
+        "contribution_margin_pct": 40,
+        "development_cost_krw_m": 5000,
+        "annual_fixed_cost_krw_m": 250,
+        "growth_pct": 0
+      }
+    },
+    {
+      "id": "triple",
+      "label_ko": "C · 저용량 3제 복합제",
+      "label_en": "C · Low-dose triple combination",
+      "composition_ko": "Telmisartan + amlodipine + indapamide",
+      "composition_en": "Telmisartan + amlodipine + indapamide",
+      "development_ko": "미국 승인 선례를 참고하되 국내 허가경로·권리·급여·현재 판매상태를 별도 확인한다. 국내 S-amlodipine/chlorthalidone 조합과 동일시하지 않는다.",
+      "development_en": "Use the US approval precedent while separately confirming Korean pathway, rights, reimbursement and current marketing status; distinguish domestic S-amlodipine/chlorthalidone combinations.",
+      "vcc_focus_ko": "저함량 성분 정량한계·균일성, 3성분 동시분석, 불순물 간섭, 배합·포장 안정성, 용량 근거·임상/동등성 범위",
+      "vcc_focus_en": "Low-dose sensitivity/uniformity, three-component methods, impurity interference, formulation/package stability and dose/clinical/equivalence basis",
+      "assumptions": {
+        "launch_year": 2031,
+        "eligible_patients": 450000,
+        "annual_net_price_krw": 180000,
+        "initial_share_pct": 1,
+        "peak_share_pct": 18,
+        "ramp_years": 4,
+        "access_pct": 65,
+        "adherence_pct": 80,
+        "success_pct": 45,
+        "economics_pct": 100,
+        "contribution_margin_pct": 45,
+        "development_cost_krw_m": 15000,
+        "annual_fixed_cost_krw_m": 400,
+        "growth_pct": 0
+      }
+    }
+  ],
+  "sources": [
+    {
+      "id": "YUHAN25",
+      "title": "유한양행 제103기 사업보고서 — II.4 매출 및 수주상황",
+      "url": "https://kind.krx.co.kr/external/2026/03/12/002066/20260312004696/11011.htm",
+      "date": "2026-03-12",
+      "note": "2023–2025 연간 트윈스타 내수 매출. 원문 단위 백만원. 글로벌 브랜드·성분시장 매출 아님."
+    },
+    {
+      "id": "MICARDIS",
+      "title": "DailyMed MICARDIS prescribing information",
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=cfb9309f-e0df-4a55-9542-0e869fce05fb",
+      "date": "Label revised 2022-12; posted 2025-05-20",
+      "note": "미국 단일제·물성·보관 정보의 공개 근거. 국내 허가·현재 판매 별도 확인."
+    },
+    {
+      "id": "TWYNSTA",
+      "title": "FDA TWYNSTA historical label",
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2011/022401s010lbl.pdf",
+      "date": "2011",
+      "note": "텔미사르탄/암로디핀 성분 및 과거 미국 승인 선례. 현재 처방정보·판매상태를 뜻하지 않음."
+    },
+    {
+      "id": "WIDA-APP",
+      "title": "FDA WIDAPLIK approval letter NDA 219423",
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/appletter/2025/219423Orig1s000ltr.pdf",
+      "date": "2025-06-05",
+      "note": "505(b)(2) 승인 선례. 미국 선례가 한국 허가경로를 확정하지 않음."
+    },
+    {
+      "id": "WIDA-LABEL",
+      "title": "FDA WIDAPLIK initial label",
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2025/219423s000lbl.pdf",
+      "date": "2025",
+      "note": "3성분 구성·임상 기여·보관 근거. 자체 심혈관 사건 감소 입증으로 확대하지 않음."
+    },
+    {
+      "id": "OB26",
+      "title": "FDA Orange Book — August 2026 cumulative supplement, p.1-6",
+      "url": "https://www.fda.gov/media/72973/download#page=16",
+      "date": "2026-08 edition, retrieved 2026-09-28",
+      "note": "N219423 세 함량 모두 Jun DISC. 승인과 비시판 상태를 구분. 이 표만으로 중단 사유를 알 수 없음. URL의 월별 문서는 교체될 수 있음."
+    },
+    {
+      "id": "CKD-DUAL",
+      "title": "종근당 텔미누보 20/1.25mg 제품정보",
+      "url": "https://www.ckdpharm.com/product/productView.do?prodCode=CKD0000935",
+      "date": "2025-11-01 출시 명시; 페이지 게시일 미표시",
+      "note": "Telmisartan/S-amlodipine. 라세미 amlodipine과 용량 숫자 직접비교 금지."
+    },
+    {
+      "id": "CKD-TRIPLE",
+      "title": "종근당 텔미누보플러스 40/2.5/12.5mg 제품정보",
+      "url": "https://www.ckdpharm.com/product/productView.do?prodCode=CKD0000941",
+      "date": "확인 2026-09-28; 허가·출시일 미확인",
+      "note": "Telmisartan/S-amlodipine/chlorthalidone. WIDAPLIK과 다른 성분 구성."
+    },
+    {
+      "id": "PCT",
+      "title": "ClinicalTrials.gov NCT04518306 — placebo controlled GMRx2",
+      "url": "https://clinicaltrials.gov/study/NCT04518306",
+      "date": "Last update 2025-06-03",
+      "note": "Phase 3 completed; 무작위배정 295명. enrollment 755는 run-in 진입자."
+    },
+    {
+      "id": "ACT",
+      "title": "ClinicalTrials.gov NCT04518293 — GMRx2 versus dual combinations",
+      "url": "https://clinicaltrials.gov/study/NCT04518293",
+      "date": "Last update 2025-06-03",
+      "note": "Phase 3 completed; 무작위배정 1,385명. active run-in 후 12주 비교."
+    },
+    {
+      "id": "CKD2023",
+      "title": "종근당 2023 사업보고서 — II.2 주요 제품 현황",
+      "url": "https://kind.krx.co.kr/external/2024/03/20/001397/20240320006479/11011.htm",
+      "date": "2024-03-20",
+      "note": "텔미누보 연결기준 제품 매출. 내수·수출 분해 없음. 트윈스타 내수 매출과 범위 차이가 있음."
+    },
+    {
+      "id": "CKD2024",
+      "title": "종근당 2024 사업보고서 — II.2 주요 제품 현황",
+      "url": "https://kind.krx.co.kr/external/2025/03/25/000383/20250325001610/11011.htm",
+      "date": "2025-03-25 정정",
+      "note": "텔미누보 연결기준 제품 매출. 내수·수출 분해 없음. 트윈스타 내수 매출과 범위 차이가 있음."
+    },
+    {
+      "id": "CKD2025",
+      "title": "종근당 2025 사업보고서 — II.2 주요 제품 현황",
+      "url": "https://kind.krx.co.kr/external/2026/03/18/001977/20260318009103/11011.htm",
+      "date": "2026-03-18",
+      "note": "텔미누보 연결기준 제품 매출. 내수·수출 분해 없음. 트윈스타 내수 매출과 범위 차이가 있음."
+    }
+  ],
+  "pipeline": [
+    {
+      "product": "MICARDIS",
+      "composition": "Telmisartan",
+      "status": "미국 최초승인 1998 — 단일제 선례",
+      "region": "US",
+      "source_id": "MICARDIS",
+      "note": "현재 국내 동일제품 판매·허가 여부를 이 라벨로 판단하지 않음"
+    },
+    {
+      "product": "TWYNSTA / 트윈스타",
+      "composition": "Telmisartan / amlodipine",
+      "status": "미국 최초승인 2009; 유한 2025 국내 매출 공시 확인",
+      "region": "US / KR",
+      "source_id": "TWYNSTA",
+      "note": "성분·승인선례는 역사적 FDA 라벨. 한국 매출은 아래 YUHAN25 별도 근거"
+    },
+    {
+      "product": "텔미누보 20/1.25",
+      "composition": "Telmisartan / S-amlodipine",
+      "status": "회사 제품정보: 2025-11-01 출시",
+      "region": "KR",
+      "source_id": "CKD-DUAL",
+      "note": "B안의 amlodipine과 다른 구성. 동일 함량·동일 제품으로 합산하지 않음"
+    },
+    {
+      "product": "텔미누보플러스",
+      "composition": "Telmisartan / S-amlodipine / chlorthalidone",
+      "status": "회사 제품등재 확인; 허가일·출시일 미확인",
+      "region": "KR",
+      "source_id": "CKD-TRIPLE",
+      "note": "3제 경쟁사례. C안의 amlodipine/indapamide와 다른 조합"
+    },
+    {
+      "product": "GMRx2 / WIDAPLIK",
+      "composition": "Telmisartan / amlodipine / indapamide",
+      "status": "2025-06-05 FDA 승인; 2026-08 Orange Book Jun DISC",
+      "region": "US",
+      "source_id": "OB26",
+      "note": "미국 승인선례로 비교. 현재 판매 중으로 표시하지 않으며 중단 사유는 미확인"
+    },
+    {
+      "product": "GMRx2 · NCT04518306",
+      "composition": "저용량 3제 vs 위약",
+      "status": "Phase 3 COMPLETED; 295명 무작위배정",
+      "region": "다국가",
+      "source_id": "PCT",
+      "note": "4주 시험. 등록 755명은 run-in 진입; 한국 환자군·장기 사건 결과로 확대 금지"
+    },
+    {
+      "product": "GMRx2 · NCT04518293",
+      "composition": "3제 vs 구성성분 2제 조합",
+      "status": "Phase 3 COMPLETED; 1,385명 무작위배정",
+      "region": "다국가",
+      "source_id": "ACT",
+      "note": "active run-in 후 12주 비교. 해당 단계는 공개 참조제품의 단계이며 가상의 국내 개발안과 다름"
+    }
+  ],
+  "revenue_evidence": [
+    {
+      "product": "트윈스타 / 유한양행",
+      "period": "2023",
+      "amount_krw_m": 81621,
+      "scope": "연간 국내 판매 매출 · 공시 제품 항목",
+      "source_id": "YUHAN25",
+      "note": "실적. 시장 전체·글로벌 브랜드 매출·신규 개발안 전망이 아님"
+    },
+    {
+      "product": "트윈스타 / 유한양행",
+      "period": "2024",
+      "amount_krw_m": 92372,
+      "scope": "연간 국내 판매 매출 · 공시 제품 항목",
+      "source_id": "YUHAN25",
+      "note": "실적. 시장 전체·글로벌 브랜드 매출·신규 개발안 전망이 아님"
+    },
+    {
+      "product": "트윈스타 / 유한양행",
+      "period": "2025",
+      "amount_krw_m": 89111,
+      "scope": "연간 국내 판매 매출 · 공시 제품 항목",
+      "source_id": "YUHAN25",
+      "note": "실적. 시장 전체·글로벌 브랜드 매출·신규 개발안 전망이 아님"
+    },
+    {
+      "product": "듀오웰",
+      "period": "2025",
+      "amount_krw_m": null,
+      "scope": "개별 제품 매출 미분리",
+      "source_id": "YUHAN25",
+      "note": "기타(듀오웰 외) 합계를 듀오웰 단독매출로 사용할 수 없음"
+    },
+    {
+      "product": "WIDAPLIK",
+      "period": "비교 가능한 연간실적 미확인",
+      "amount_krw_m": null,
+      "scope": "이번 공개자료 조사에서 제품 매출 확인 못함",
+      "source_id": "OB26",
+      "note": "누락은 0원 아님. FDA 판매상태 기록은 매출자료가 아님"
+    },
+    {
+      "product": "텔미누보 / 종근당",
+      "period": "2023",
+      "amount_krw_m": 41189,
+      "scope": "연결기준 제품 매출 · 지역별 매출 미분리",
+      "source_id": "CKD2023",
+      "note": "Telmisartan / S-amlodipine. 트윈스타와 성분·매출 범위가 달라 직접 시장점유율 비교 불가"
+    },
+    {
+      "product": "텔미누보 / 종근당",
+      "period": "2024",
+      "amount_krw_m": 45684,
+      "scope": "연결기준 제품 매출 · 지역별 매출 미분리",
+      "source_id": "CKD2024",
+      "note": "Telmisartan / S-amlodipine. 트윈스타와 성분·매출 범위가 달라 직접 시장점유율 비교 불가"
+    },
+    {
+      "product": "텔미누보 / 종근당",
+      "period": "2025",
+      "amount_krw_m": 50707,
+      "scope": "연결기준 제품 매출 · 지역별 매출 미분리",
+      "source_id": "CKD2025",
+      "note": "Telmisartan / S-amlodipine. 트윈스타와 성분·매출 범위가 달라 직접 시장점유율 비교 불가"
+    }
+  ]
+}
